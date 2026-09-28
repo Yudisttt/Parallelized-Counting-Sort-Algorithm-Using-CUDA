@@ -56,25 +56,42 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
+    /* ==========================================================
+     * [LABEL 1] INISIALISASI DATA DI RAM (CPU)
+     * ========================================================== */
     float time_sort = 0;
     long long size = atoll(argv[1]);
     int *array = (int *)safe_alloc(size * sizeof(int));
     array_init_random(array, size, RANGE_MIN, RANGE_MAX);
 
+    /* ==========================================================
+     * [LABEL 2] EKSEKUSI COUNTING SORT SERIAL (CPU)
+     * ========================================================== */
     START_TIME(time_sort);
     counting_sort(array, size);
     END_TIME(time_sort);
 
-    /* Test correctness of the algorithm. */
+    /* ==========================================================
+     * [LABEL 3] VALIDASI KETERURUTAN & TAMPILKAN HASIL
+     * ========================================================== */
     bool is_sorted = array_is_sorted(array, size);
     free(array);
 
-    /* Show output and exit. */
     if (!is_sorted) {
-        fprintf(stderr, "Array NOT sorted!!!\n");
+        fprintf(stderr, "\n[ERROR] Array TIDAK terurut dengan benar!\n");
         return EXIT_FAILURE;
     } else {
-        printf("%lld;0;0;0;%.5f\n", size, time_sort);
+        printf("\n======================================================\n");
+        printf("           HASIL COUNTING SORT SERIAL (CPU)           \n");
+        printf("======================================================\n");
+        printf(" Jumlah Elemen (N)          : %lld data\n", size);
+        printf(" Rentang Nilai (Range)      : [%d, %d]\n", RANGE_MIN, RANGE_MAX);
+        printf("------------------------------------------------------\n");
+        printf(" Total Waktu Sorting (CPU)  : %.5f detik\n", time_sort);
+        printf(" Status Pengurutan          : VALID (Array Terurut Sempurna)\n");
+        printf("------------------------------------------------------\n");
+        printf(" Format Asli (CSV)          : %lld;0;0;0;%.5f\n", size, time_sort);
+        printf("======================================================\n\n");
         return EXIT_SUCCESS;
     }
 }

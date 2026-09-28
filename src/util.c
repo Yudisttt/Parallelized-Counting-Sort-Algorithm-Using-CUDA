@@ -35,6 +35,13 @@
 #include <stdlib.h>
 #include <time.h>
 
+#if defined(_WIN32) || defined(_WIN64)
+static inline int rand_r(unsigned int *seed) {
+    *seed = *seed * 1103515245 + 12345;
+    return (int)(*seed / 65536) % 32768;
+}
+#endif
+
 
 void *safe_alloc(long long size) {
     if (size < 1) {

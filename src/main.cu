@@ -64,12 +64,12 @@ int main(int argc, char **argv) {
     long long i = 0, j = 0, k = 0;
     int min = 0, max = 0;
 
-    /* Initialize the main array on HOST. */
+    /*INISIALISASI DATA DI HOST (CPU RAM)*/
     const long long size = atoll(argv[1]);
     int *array = (int *)safe_alloc(size * sizeof(int));
     array_init_random(array, size, RANGE_MIN, RANGE_MAX);
 
-    /* Initialize the main array on DEVICE. */
+    /*ALOKASI MEMORI DI DEVICE (GPU VRAM) & TRANSFER DATA */
     int *array_device;
     CUDA_ERROR_CHECK(
         cudaMalloc((void **)&array_device, size * sizeof(int))
@@ -79,31 +79,22 @@ int main(int argc, char **argv) {
                    cudaMemcpyHostToDevice)
     );
 
-    /*
-     * Find minimum and maximum values of the array to determine the size of
-     * the count array.
-     */
+    /* Cari nilai minimum dan maksimum dari array */
     array_min_max(array, size, &min, &max);
     const int count_size = max - min + 1;
 
-    /* Initialize count array on HOST and DEVICE. */
+    /* Inisialisasi array frekuensi (count) di Host dan Device */
     int *count = (int *)safe_alloc(sizeof(int) * count_size);
     int *count_device;
     CUDA_ERROR_CHECK(
         cudaMalloc((void **)&count_device, count_size * sizeof(int))
     );
 
-    /*
-     * Number of threads in a block.
-     * Passed as command line argument.
-     */
+    /*KONFIGURASI GRID DAN BLOCK CUDA*/
     dim3 dimBlock(atoi(argv[2]));
-    /*
-     * Number of blocks in a grid.
-     * Calculated to cover the entire array with enough threads.
-     */
     dim3 dimGrid((size - 1) / dimBlock.x + 1);
 
+    /*EKSEKUSI KERNEL CUDA (PENGHITUNGAN FREKUENSI)*/
     START_TIME(time_sort);
 
     START_CUDA_TIME(time_kernel);
@@ -113,35 +104,45 @@ int main(int argc, char **argv) {
     CUDA_KERNEL_ERROR_CHECK;
     END_CUDA_TIME(time_kernel);
 
-    /* "Transfer" count from device back to host. */
+    /*TRANSFER HASIL DARI GPU KE CPU & REKONSTRUKSI ARRAY */
     CUDA_ERROR_CHECK(
         cudaMemcpy(count, count_device, count_size * sizeof(int),
                    cudaMemcpyDeviceToHost)
     );
 
-    /* Last section of the algorithm is not parallelizable. */
+    /* Rekonstruksi array berdasar frekuensi count (Serial di Host) */
     for (i = min; i < max + 1; i++)
         for (j = 0; j < count[i - min]; j++)
             array[k++] = i;
 
     END_TIME(time_sort);
 
-    /* Test correctness of the algorithm. */
+    /* VALIDASI KETERURUTAN & TAMPILKAN HASIL DENGAN LABEL */
     bool is_sorted = array_is_sorted(array, size);
 
-    /* Deallocate all the dynamic memory. */
+    /* Bebaskan alokasi memori */
     CUDA_ERROR_CHECK( cudaFree(array_device) );
     CUDA_ERROR_CHECK( cudaFree(count_device) );
     free(array);
     free(count);
 
-    /* Show output and exit. */
     if (!is_sorted) {
-        fprintf(stderr, "Array NOT sorted!!!\n");
+        fprintf(stderr, "\n[ERROR] Array TIDAK terurut dengan benar!\n");
         return EXIT_FAILURE;
     } else {
-        printf("%lld;%d;%d;%.5f;%.5f\n", size, dimGrid.x, dimBlock.x,
-                                         time_kernel, time_sort);
+        printf("           HASIL COUNTING SORT CUDA (PARALLEL)         \n");
+        printf(" Jumlah Elemen (N)          : %lld data\n", size);
+        printf(" Rentang Nilai (Range)      : [%d, %d]\n", min, max);
+        printf(" Block Size (Threads/Block) : %d threads\n", dimBlock.x);
+        printf(" Grid Size (Jumlah Block)   : %d blocks\n", dimGrid.x);
+        printf("------------------------------------------------------\n");
+        printf(" Waktu Eksekusi Kernel GPU  : %.5f detik\n", time_kernel);
+        printf(" Total Waktu Sorting        : %.5f detik\n", time_sort);
+        printf(" Status Pengurutan          : VALID (Array Terurut Sempurna)\n");
+        printf("------------------------------------------------------\n");
+        printf(" Format Asli (CSV)          : %lld;%d;%d;%.5f;%.5f\n",
+               size, dimGrid.x, dimBlock.x, time_kernel, time_sort);
+        printf("======================================================\n\n");
         return EXIT_SUCCESS;
     }
 }
